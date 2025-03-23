@@ -1,0 +1,73 @@
+# Web Framework
+flask==3.0.2
+flask-cors==4.0.0
+
+# Confluence Integration
+atlassian-python-api==3.41.4
+beautifulsoup4==4.12.3
+requests==2.31.0
+
+# Machine Learning
+torch==2.2.1
+transformers==4.38.2
+sentence-transformers==2.5.1
+faiss-cpu==1.8.0
+numpy==1.26.4
+scikit-learn==1.4.1
+
+# Speech Processing
+openai-whisper==20231117
+piper-tts==0.1.0
+
+# Utilities
+python-dotenv==1.0.1
+pyyaml==6.0.1
+loguru==0.7.2
+tqdm==4.66.2
+markdown==3.5.2
+
+# Testing
+pytest==8.0.2
+pytest-cov==4.1.0
+
+# Web scraping
+playwright>=1.41.0
+html5lib>=1.1
+beautifulsoup4>=4.12.0
+
+# Search engine
+duckduckgo-search>=7.2.1
+
+# LLM integration
+openai>=1.59.8 # o1 support
+anthropic>=0.42.0
+python-dotenv>=1.0.0
+
+# Testing
+unittest2>=1.1.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.5
+
+# Google Generative AI
+google-generativeai
+
+# gRPC, for Google Generative AI preventing WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+grpcio>=1.54.0
+
+# Common dependencies
+requests>=2.25.0  # HTTP requests for API calls
+setuptools>=65.5.1  # Required for some packages
+wheel>=0.38.0  # Required for building packages
+
+# AI Avatar dependencies
+flask>=3.0.0  # Web server
+sentence-transformers>=2.2.0  # For text embeddings
+faiss-cpu>=1.7.4  # For vector search
+numpy>=1.24.0  # Required for FAISS
+soundfile>=0.12.1  # For audio processing
+markdown>=3.5.0  # For markdown rendering
+transformers>=4.37.0  # For QA model
+torch>=2.0.0  # Required for transformers
+loguru>=0.7.2  # For logging
+
+# Note: For video processor dependencies, see video_processor/requirements.txt

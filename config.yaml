@@ -1,0 +1,24 @@
+embedding:
+  model_name: "all-MiniLM-L6-v2"
+  dimension: 384
+
+# QA Configuration
+qa:
+  mode: "generative"  # Options: "generative" or "extractive"
+  
+  # Generative QA settings (used when mode="generative")
+  generative:
+    model_name: "deepseek-r1:1.5b"  # DeepSeek model name
+    api_url: "http://localhost:11434"  # Ollama API URL
+    max_context_length: 4096  # Maximum context length for the model
+    temperature: 0.7  # Temperature for text generation
+    max_tokens: 512  # Maximum tokens to generate
+    
+  # Extractive QA settings (used when mode="extractive")
+  extractive:
+    model_name: "deepset/roberta-base-squad2"  # HuggingFace model name
+    max_length: 100  # Maximum length of extracted answer
+
+search:
+  index_path: "data/vectors/voice_search_index.faiss"
+  metadata_path: "data/vectors/voice_search_index.metadata" 

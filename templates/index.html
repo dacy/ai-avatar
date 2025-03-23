@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Avatar - Voice Search</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Avatar</h1>
+            <p class="subtitle">Voice-Activated Confluence Search</p>
+        </header>
+
+        <main>
+            <section class="confluence-input">
+                <h2>Add Confluence Page</h2>
+                <div class="input-group">
+                    <input type="text" id="confluence-input" placeholder="Enter Confluence page URL...">
+                    <button id="process-confluence-button" class="primary-button">
+                        <span class="material-icons">add</span>
+                        Add Page
+                    </button>
+                </div>
+            </section>
+
+            <section class="search-container">
+                <h2>Ask a Question</h2>
+                <div class="input-group">
+                    <button id="microphone-button" class="icon-button">
+                        <span class="material-icons">mic</span>
+                        <span>Start Recording</span>
+                    </button>
+                    <input type="text" id="query-input" placeholder="Or type your question here...">
+                    <button id="search-button" class="primary-button">
+                        <span class="material-icons">search</span>
+                        Search
+                    </button>
+                </div>
+            </section>
+
+            <section class="results-container">
+                <div id="loading-indicator" class="loading-indicator" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing your request...</p>
+                </div>
+
+                <div id="error-message" class="error-message" style="display: none;"></div>
+
+                <div id="results-container" class="results" style="display: none;"></div>
+            </section>
+        </main>
+
+        <footer>
+            <div id="status-message" class="status-message">Checking system status...</div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html> 
