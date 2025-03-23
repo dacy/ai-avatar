@@ -12,13 +12,18 @@
         <div class="main-content">
             <div class="container">
                 <header>
-                    <h1>AI Avatar</h1>
-                    <p class="subtitle">Voice-Activated Confluence Search</p>
+                    <div class="header-content">
+                        <h1>AI Avatar</h1>
+                        <p class="subtitle">Voice-Activated Confluence Search</p>
+                    </div>
                 </header>
 
                 <main>
                     <section class="confluence-input">
-                        <h2>Add Confluence Page</h2>
+                        <div class="section-header">
+                            <span class="material-icons">add_circle</span>
+                            <h2>Add Confluence Page</h2>
+                        </div>
                         <div class="input-group">
                             <input type="text" id="confluence-input" placeholder="Enter Confluence page URL...">
                             <button id="process-confluence-button" class="primary-button">
@@ -29,12 +34,21 @@
                     </section>
 
                     <div class="question-section">
-                        <h2>Ask a Question</h2>
+                        <div class="section-header">
+                            <span class="material-icons">help</span>
+                            <h2>Ask a Question</h2>
+                        </div>
                         
                         <!-- Input type toggle -->
                         <div class="input-toggle">
-                            <button id="textInputBtn" class="toggle-btn active">Text Input</button>
-                            <button id="voiceInputBtn" class="toggle-btn">Voice Input</button>
+                            <button id="textInputBtn" class="toggle-btn active">
+                                <span class="material-icons">edit</span>
+                                Text Input
+                            </button>
+                            <button id="voiceInputBtn" class="toggle-btn">
+                                <span class="material-icons">mic</span>
+                                Voice Input
+                            </button>
                         </div>
 
                         <!-- Text input section -->
@@ -44,13 +58,16 @@
                                       rows="4" 
                                       placeholder="Type your question here... (Press Enter to submit, Shift+Enter for new line)"
                                       autocomplete="off"></textarea>
-                            <button id="submitTextBtn" class="submit-btn">Submit Question</button>
+                            <button id="submitTextBtn" class="submit-btn">
+                                <span class="material-icons">send</span>
+                                Submit Question
+                            </button>
                         </div>
 
                         <!-- Voice input section -->
                         <div id="voiceInputSection" style="display: none;">
                             <button id="recordButton" class="record-btn">
-                                <span class="record-icon">🎤</span>
+                                <span class="record-icon material-icons">mic</span>
                                 <span class="record-text">Hold to Record</span>
                             </button>
                         </div>
@@ -64,7 +81,13 @@
 
                         <div id="error-message" class="error-message" style="display: none;"></div>
 
-                        <div id="results" class="results" style="display: none;"></div>
+                        <div id="results" class="results" style="display: none;">
+                            <div class="section-header">
+                                <span class="material-icons">search</span>
+                                <h2>Search Results</h2>
+                            </div>
+                            <div class="results-content"></div>
+                        </div>
                     </section>
                 </main>
 
@@ -76,7 +99,10 @@
 
         <div class="sidebar">
             <div class="indexed-documents">
-                <h2>Indexed Documents</h2>
+                <div class="section-header">
+                    <span class="material-icons">folder</span>
+                    <h2>Indexed Documents</h2>
+                </div>
                 <div id="documents-list" class="documents-list">
                     <div class="loading-indicator">
                         <div class="spinner"></div>
