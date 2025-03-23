@@ -93,11 +93,11 @@ class GenerativeQA:
             # Log the response
             response_data = response.json()
             logger.info("=== API Response ===")
-            logger.info(f"Raw response: {response_data}")
+            logger.info(f"Model: {response_data.get('model', 'unknown')}")
+            logger.info(f"Raw Response text: {response_data.get('response', '')}")
             logger.info("===================")
             
             # Extract answer from response
-            # Ollama API returns the response in the 'response' field
             answer = response_data.get('response', '').strip()
             
             if not answer:
@@ -109,9 +109,8 @@ class GenerativeQA:
             if "<think>" in answer:
                 answer = answer.split("</think>")[-1].strip()
             
-            # Remove "Answer:" prefix if present
-            if answer.lower().startswith("answer:"):
-                answer = answer[7:].strip()
+            # Remove any instances of "Answer:" or "answer:"
+            answer = answer.replace("Answer:", "").replace("answer:", "").strip()
             
             # Remove any leading/trailing quotes
             answer = answer.strip('"\'')
@@ -136,18 +135,24 @@ class GenerativeQA:
         """Create a prompt for the model."""
         context_text = "\n\n".join(contexts)
         
-        prompt = f"""You are a helpful AI assistant. Answer the following question based ONLY on the provided context. If you cannot find a relevant answer in the context, say so.
+        prompt = f"""You are a helpful AI assistant that provides accurate answers based on the provided context. Your task is to answer the question using ONLY the information from the given context.
 
-IMPORTANT:
-- Provide a direct answer
-- Do not include any XML tags or special formatting
-- Do not repeat the question or add any prefixes like "Answer:"
-- If you cannot find a relevant answer, simply say "I could not find a relevant answer in the provided context."
+Instructions:
+1. Read the context carefully and identify relevant information
+2. Provide a clear, concise answer that directly addresses the question
+3. If the context contains multiple relevant pieces of information, combine them logically
+4. If you cannot find a relevant answer in the context, explicitly state that
+5. Do not make assumptions or add information beyond what is in the context
+6. If the context is ambiguous or incomplete, acknowledge this in your response
+7. Provide your answer in a single, coherent response without repeating yourself
+8. Do not include the word "Answer:" anywhere in your response
 
 Context:
 {context_text}
 
-Question: {question}"""
+Question: {question}
+
+Provide your response:"""
 
         # Log the prompt details
         logger.info("=== Prompt Details ===")

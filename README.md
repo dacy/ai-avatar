@@ -1,20 +1,20 @@
-# AI Avatar - Voice Search Tool
+# AI Avatar - Semantic Search Tool
 
-An AI-powered voice search tool that processes Confluence pages and answers questions about their content. The tool uses semantic embeddings and vector similarity search to find relevant information, and a question-answering model to extract precise answers.
+A semantic search tool that processes text documents and answers questions about their content. The tool uses semantic embeddings and vector similarity search to find relevant information, and a question-answering model to extract precise answers.
 
 ## Features
 
-- **Voice Input/Output**: Support for voice queries and text-to-speech responses
-- **Confluence Integration**: Process and index Confluence pages for search
-- **Semantic Search**: Uses FAISS vector database for efficient similarity search
-- **Question Answering**: Extracts precise answers using the RoBERTa QA model
-- **On-Premise Processing**: All processing is done locally for data privacy
+- **Text-based Search**: Query your knowledge base using natural language
+- **Semantic Search**: Uses FAISS for efficient vector similarity search
+- **Question Answering**: Uses Ollama for generating answers from context
+- **On-Premise Processing**: All data processing happens locally for privacy
+- **Modern UI**: Clean, responsive interface with real-time feedback
 
 ## Prerequisites
 
-- Python 3.8 or higher
-- FFmpeg (for audio processing)
-- CUDA-capable GPU (optional, for faster processing)
+- Python 3.8+
+- Ollama installed and running locally
+- FAISS library for vector similarity search
 
 ## Installation
 
@@ -27,8 +27,7 @@ cd ai-avatar
 2. Create and activate a virtual environment:
 ```bash
 python -m venv venv
-.\venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 3. Install dependencies:
@@ -36,23 +35,11 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-4. Install FFmpeg:
-- Windows: Download from [FFmpeg website](https://ffmpeg.org/download.html)
-- Linux: `sudo apt-get install ffmpeg`
-- Mac: `brew install ffmpeg`
-
-## Configuration
-
-1. Copy the example configuration file:
+4. Configure environment variables:
 ```bash
-cp config/config.yaml.example config/config.yaml
+cp .env.example .env
+# Edit .env with your configuration
 ```
-
-2. Edit `config/config.yaml` with your settings:
-- Confluence connection details
-- Model configurations
-- Server settings
-- Data storage paths
 
 ## Usage
 
@@ -61,78 +48,44 @@ cp config/config.yaml.example config/config.yaml
 python full_server.py
 ```
 
-2. Open your browser and navigate to `http://localhost:8000`
+2. Open your browser and navigate to `http://localhost:5000`
 
-3. Process a Confluence page:
-   - Enter the Confluence page URL
-   - Click "Process Page" to extract and index the content
-
-4. Ask questions:
+3. Search your knowledge base:
    - Type your question in the text input
-   - Or click the microphone icon to use voice input
-   - The system will search the indexed content and provide relevant answers
+   - Click "Submit Question" or press Enter
+   - The system will search through indexed documents and provide an answer
 
-## Project Structure
+## Architecture
 
-```
-ai-avatar/
-├── config/
-│   └── config.yaml          # Configuration settings
-├── data/
-│   ├── raw/                 # Raw Confluence content
-│   ├── processed/           # Processed text chunks
-│   └── vectors/             # FAISS index and embeddings
-├── src/
-│   ├── confluence/          # Confluence crawler
-│   ├── embedding/           # Text embedding model
-│   ├── qa/                  # Question answering model
-│   └── search/              # Vector search implementation
-├── static/                  # Static web assets
-├── templates/               # HTML templates
-├── full_server.py          # Main server application
-└── requirements.txt        # Python dependencies
-```
+- **Frontend**: HTML, CSS, JavaScript with modern UI components
+- **Backend**: Python Flask server
+- **Search Engine**: FAISS for vector similarity search
+- **LLM**: Ollama for question answering
+- **Vector Database**: FAISS for efficient similarity search
+- **Embedding Model**: SentenceTransformer with "all-MiniLM-L6-v2"
 
-## Models Used
+## Development Status
 
-- **Embedding Model**: `all-MiniLM-L6-v2` (384 dimensions)
-- **QA Model**: `deepset/roberta-base-squad2`
-- **Speech Recognition**: OpenAI Whisper (optional)
-- **Text-to-Speech**: Piper TTS (optional)
+### Implemented Features
+- ✅ Text-based search interface
+- ✅ Semantic search with FAISS
+- ✅ Question answering with Ollama
+- ✅ Modern, responsive UI
+- ✅ Real-time status updates
+- ✅ Error handling and logging
 
-## Development
-
-### Adding New Features
-
-1. Create a new branch:
-```bash
-git checkout -b feature/your-feature-name
-```
-
-2. Make your changes and commit:
-```bash
-git add .
-git commit -m "Add: your feature description"
-```
-
-3. Push changes and create a pull request:
-```bash
-git push origin feature/your-feature-name
-```
-
-### Running Tests
-
-```bash
-python -m pytest tests/
-```
+### In Progress
+- 🔄 Voice input interface
+- 🔄 Voice output
+- 🔄 Confluence integration
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
+2. Create a feature branch
 3. Commit your changes
 4. Push to the branch
-5. Create a new Pull Request
+5. Create a Pull Request
 
 ## License
 
@@ -140,6 +93,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- [Hugging Face](https://huggingface.co/) for the transformer models
-- [FAISS](https://github.com/facebookresearch/faiss) for vector similarity search
-- [Flask](https://flask.palletsprojects.com/) for the web framework 
+- Ollama for providing the LLM capabilities
+- FAISS for efficient similarity search
+- SentenceTransformer for text embeddings 
