@@ -8,54 +8,83 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>AI Avatar</h1>
-            <p class="subtitle">Voice-Activated Confluence Search</p>
-        </header>
+    <div class="app-container">
+        <div class="main-content">
+            <div class="container">
+                <header>
+                    <h1>AI Avatar</h1>
+                    <p class="subtitle">Voice-Activated Confluence Search</p>
+                </header>
 
-        <main>
-            <section class="confluence-input">
-                <h2>Add Confluence Page</h2>
-                <div class="input-group">
-                    <input type="text" id="confluence-input" placeholder="Enter Confluence page URL...">
-                    <button id="process-confluence-button" class="primary-button">
-                        <span class="material-icons">add</span>
-                        Add Page
-                    </button>
+                <main>
+                    <section class="confluence-input">
+                        <h2>Add Confluence Page</h2>
+                        <div class="input-group">
+                            <input type="text" id="confluence-input" placeholder="Enter Confluence page URL...">
+                            <button id="process-confluence-button" class="primary-button">
+                                <span class="material-icons">add</span>
+                                Add Page
+                            </button>
+                        </div>
+                    </section>
+
+                    <div class="question-section">
+                        <h2>Ask a Question</h2>
+                        
+                        <!-- Input type toggle -->
+                        <div class="input-toggle">
+                            <button id="textInputBtn" class="toggle-btn active">Text Input</button>
+                            <button id="voiceInputBtn" class="toggle-btn">Voice Input</button>
+                        </div>
+
+                        <!-- Text input section -->
+                        <div id="textInputSection">
+                            <textarea id="questionInput" 
+                                      class="question-textarea" 
+                                      rows="4" 
+                                      placeholder="Type your question here... (Press Enter to submit, Shift+Enter for new line)"
+                                      autocomplete="off"></textarea>
+                            <button id="submitTextBtn" class="submit-btn">Submit Question</button>
+                        </div>
+
+                        <!-- Voice input section -->
+                        <div id="voiceInputSection" style="display: none;">
+                            <button id="recordButton" class="record-btn">
+                                <span class="record-icon">🎤</span>
+                                <span class="record-text">Hold to Record</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <section class="results-container">
+                        <div id="loading-indicator" class="loading-indicator" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Processing your request...</p>
+                        </div>
+
+                        <div id="error-message" class="error-message" style="display: none;"></div>
+
+                        <div id="results" class="results" style="display: none;"></div>
+                    </section>
+                </main>
+
+                <footer>
+                    <div id="status-message" class="status-message">Checking system status...</div>
+                </footer>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="indexed-documents">
+                <h2>Indexed Documents</h2>
+                <div id="documents-list" class="documents-list">
+                    <div class="loading-indicator">
+                        <div class="spinner"></div>
+                        <p>Loading documents...</p>
+                    </div>
                 </div>
-            </section>
-
-            <section class="search-container">
-                <h2>Ask a Question</h2>
-                <div class="input-group">
-                    <button id="microphone-button" class="icon-button">
-                        <span class="material-icons">mic</span>
-                        <span>Start Recording</span>
-                    </button>
-                    <input type="text" id="query-input" placeholder="Or type your question here...">
-                    <button id="search-button" class="primary-button">
-                        <span class="material-icons">search</span>
-                        Search
-                    </button>
-                </div>
-            </section>
-
-            <section class="results-container">
-                <div id="loading-indicator" class="loading-indicator" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Processing your request...</p>
-                </div>
-
-                <div id="error-message" class="error-message" style="display: none;"></div>
-
-                <div id="results-container" class="results" style="display: none;"></div>
-            </section>
-        </main>
-
-        <footer>
-            <div id="status-message" class="status-message">Checking system status...</div>
-        </footer>
+            </div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

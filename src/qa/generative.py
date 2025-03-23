@@ -51,8 +51,7 @@ class GenerativeQA:
                     'title': ctx.get('title', 'Unknown'),
                     'url': ctx.get('url', ''),
                     'text': ctx.get('text', '')[:200] + '...'  # Truncate for display
-                } for ctx in contexts],
-                'confidence': 0.8  # Default confidence score
+                } for ctx in contexts]
             }
             
             return [answer_dict]
@@ -61,8 +60,7 @@ class GenerativeQA:
             logger.error(f"Error extracting answers: {str(e)}", exc_info=True)
             return [{
                 'answer': f"Error generating answer: {str(e)}",
-                'sources': [],
-                'confidence': 0.0
+                'sources': []
             }]
     
     def _extract_answer(self, question: str, contexts: List[str]) -> str:
@@ -99,6 +97,7 @@ class GenerativeQA:
             logger.info("===================")
             
             # Extract answer from response
+            # Ollama API returns the response in the 'response' field
             answer = response_data.get('response', '').strip()
             
             if not answer:
@@ -116,6 +115,9 @@ class GenerativeQA:
             
             # Remove any leading/trailing quotes
             answer = answer.strip('"\'')
+            
+            # Remove any markdown formatting
+            answer = answer.replace('**', '').replace('*', '')
             
             logger.info("=== Final Answer ===")
             logger.info(answer)
@@ -137,7 +139,7 @@ class GenerativeQA:
         prompt = f"""You are a helpful AI assistant. Answer the following question based ONLY on the provided context. If you cannot find a relevant answer in the context, say so.
 
 IMPORTANT:
-- Provide a direct, concise answer without any thinking process or explanations
+- Provide a direct answer
 - Do not include any XML tags or special formatting
 - Do not repeat the question or add any prefixes like "Answer:"
 - If you cannot find a relevant answer, simply say "I could not find a relevant answer in the provided context."

@@ -25,13 +25,14 @@ class TextEmbedder:
         self.dimension = self.model.get_sentence_embedding_dimension()
         logger.info(f"Initialized TextEmbedder with model {model_name} and dimension {self.dimension}")
         
-    def process_text(self, text: str, output_dir: str) -> Dict[str, Any]:
+    def process_text(self, text: str, output_dir: str, title: str = None) -> Dict[str, Any]:
         """
         Process text content and create embeddings.
         
         Args:
             text: Text content to process
             output_dir: Directory to save the processed content
+            title: Title of the content (optional)
             
         Returns:
             Dictionary containing:
@@ -40,10 +41,16 @@ class TextEmbedder:
             - filepath: Path to saved content
         """
         try:
+            logger.info(f"Processing text of length: {len(text)}")
+            logger.info(f"First 200 chars of input: {text[:200]}")
+            
             # Clean up whitespace
             lines = (line.strip() for line in text.splitlines())
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
             content = ' '.join(chunk for chunk in chunks if chunk)
+            
+            logger.info(f"Processed text length: {len(content)}")
+            logger.info(f"First 200 chars of processed text: {content[:200]}")
             
             # Save content to file
             os.makedirs(output_dir, exist_ok=True)
@@ -53,7 +60,7 @@ class TextEmbedder:
             
             # Extract metadata
             metadata = {
-                'title': 'Text Content',
+                'title': title or 'Untitled',
                 'content_id': str(hash(text))
             }
             
@@ -64,7 +71,7 @@ class TextEmbedder:
             }
             
         except Exception as e:
-            self.logger.error(f"Error processing text: {str(e)}")
+            logger.error(f"Error processing text: {str(e)}")
             raise
             
     def split_text(self, text: str, chunk_size: int = 512, overlap: int = 128) -> List[str]:
@@ -80,8 +87,14 @@ class TextEmbedder:
             List of text chunks
         """
         try:
+            logger.info(f"Splitting text of length: {len(text)}")
+            logger.info(f"First 200 chars of input: {text[:200]}")
+            
             # Split text into sentences
             sentences = [s.strip() for s in text.split('.') if s.strip()]
+            logger.info(f"Number of sentences: {len(sentences)}")
+            if sentences:
+                logger.info(f"First sentence: {sentences[0]}")
             
             chunks = []
             current_chunk = []
@@ -120,7 +133,13 @@ class TextEmbedder:
             if current_chunk:
                 chunks.append('. '.join(current_chunk) + '.')
             
-            logger.info(f"Split text into {len(chunks)} chunks")
+            logger.info(f"Created {len(chunks)} chunks")
+            if chunks:
+                logger.info(f"First chunk length: {len(chunks[0])}")
+                logger.info(f"First chunk: {chunks[0][:200]}")
+            else:
+                logger.error("No chunks were created!")
+            
             return chunks
             
         except Exception as e:

@@ -14,6 +14,9 @@ from bs4 import BeautifulSoup
 import numpy as np
 import faiss
 import json
+import asyncio
+import pickle
+from datetime import datetime
 
 print("Starting full_server.py...")
 
@@ -29,9 +32,9 @@ logger.info("Logging initialized")
 
 # Import from src.confluence since we're now inside the ai_avatar directory
 try:
-    from recylce_bin.crawler import ConfluenceCrawler
-    from src.confluence.embedder import TextEmbedder
-    logger.info("Successfully imported ConfluenceCrawler and TextEmbedder from src.confluence")
+    from src.embedding.crawler import ConfluenceCrawler
+    from src.embedding.embedder import TextEmbedder
+    logger.info("Successfully imported ConfluenceCrawler and TextEmbedder from src.embedding")
 except ImportError as e:
     logger.error(f"Failed to import ConfluenceCrawler or TextEmbedder: {e}")
     raise
@@ -298,49 +301,41 @@ def search():
             # Skip duplicates
             text = result.get('text', '').strip()
             if text in seen_texts:
-                logger.info("Skipping duplicate result")
+                logger.info("Skipping duplicate text")
                 continue
-                
             seen_texts.add(text)
-            cleaned_results.append({
+            
+            # Clean up the result
+            cleaned_result = {
                 'text': text,
-                'score': result.get('score', 0.0),
                 'url': result.get('url', ''),
-                'chunk_index': result.get('chunk_index', 0)
-            })
-        logger.info(f"Cleaned results: {len(cleaned_results)} unique items")
+                'title': result.get('title', ''),  # Include title from metadata
+                'score': result.get('score', 0.0)
+            }
+            cleaned_results.append(cleaned_result)
             
-        # Extract text from results for QA model
-        contexts = [{'text': result['text'], 'score': result['score'], 'url': result['url']} for result in cleaned_results]
-        logger.info(f"Extracted {len(contexts)} contexts for QA model")
-            
-        # Extract answer using QA model
-        try:
-            logger.info("Extracting answer using QA model...")
-            answers = qa_extractor.extract_answers_from_multiple_contexts(query_text, contexts)
-            logger.info(f"Generated answers: {answers}")
-            
-            if not answers:
-                return jsonify({
-                    'error': 'No answer found in the provided contexts'
-                }), 404
-            
-            return jsonify({
-                'answer': answers[0]['answer'],
-                'confidence': answers[0]['confidence'],
-                'sources': cleaned_results
-            })
-            
-        except Exception as e:
-            logger.error(f"Error extracting answer: {e}", exc_info=True)
-            error_msg = str(e).lower()
-            if "corrupted" in error_msg or "invalid" in error_msg or "pickle" in error_msg:
-                # Delete corrupted files
-                for file_path in [config["search"]["index_path"], config["search"]["metadata_path"]]:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                return jsonify({'error': 'Search index was corrupted. Please add your Confluence pages again to rebuild the index.'}), 500
-            raise
+        # Generate answer using QA model
+        logger.info("Generating answer using QA model")
+        answer_result = qa_extractor.extract_answers_from_multiple_contexts(query_text, cleaned_results)
+        
+        # Handle different response formats
+        if isinstance(answer_result, list) and len(answer_result) > 0:
+            # If it's a list, take the first answer
+            answer = answer_result[0].get('answer', '')
+            confidence = answer_result[0].get('confidence', 0.0)
+        else:
+            # If it's a single result or empty
+            answer = answer_result.get('answer', '') if isinstance(answer_result, dict) else ''
+            confidence = answer_result.get('confidence', 0.0) if isinstance(answer_result, dict) else 0.0
+        
+        # Prepare response
+        response = {
+            'answer': answer,
+            'sources': cleaned_results,  # Use cleaned results with titles
+            'confidence': confidence
+        }
+        
+        return jsonify(response)
             
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
@@ -472,29 +467,18 @@ def transcribe_audio(audio_path):
         logger.error(f"Error transcribing audio: {e}")
         raise
 
-def extract_confluence_text(url: str) -> str:
-    """Extract text content from a Confluence page"""
+def extract_confluence_text(url: str) -> tuple[str, str]:
+    """Extract text content and title from a Confluence page"""
     try:
-        # For now, we'll just use requests to get the page content
-        response = requests.get(url)
-        response.raise_for_status()
+        # Use the Confluence crawler
+        crawler = ConfluenceCrawler()
+        result = asyncio.run(crawler.crawl_page(url))
         
-        # Extract text content from HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
+        logger.info(f"Successfully extracted content from {url}")
+        logger.info(f"Title: {result['title']}")
+        logger.info(f"Content length: {len(result['content'])} characters")
         
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
-            
-        # Get text content
-        text = soup.get_text()
-        
-        # Clean up whitespace
-        lines = (line.strip() for line in text.splitlines())
-        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        text = ' '.join(chunk for chunk in chunks if chunk)
-        
-        return text
+        return result['title'], result['content']
         
     except Exception as e:
         logger.error(f"Error extracting text from Confluence page: {e}")
@@ -548,7 +532,7 @@ def process_confluence():
             
         # Extract text content from the URL
         logger.info(f"Extracting content from URL: {url}")
-        content = extract_confluence_text(url)
+        title, content = extract_confluence_text(url)
         
         # Process the content
         logger.info(f"Processing content from URL: {url}")
@@ -557,6 +541,14 @@ def process_confluence():
         # Generate embeddings for the content
         logger.info("Generating embeddings for content")
         chunks = text_embedder.split_text(result['content'])
+        logger.info(f"Number of chunks: {len(chunks)}")
+        if chunks:
+            logger.info(f"First chunk length: {len(chunks[0])}")
+            logger.info(f"First chunk content: {chunks[0][:200]}")
+        else:
+            logger.error("No chunks were generated!")
+            return jsonify({'error': 'No content chunks were generated'}), 400
+            
         embeddings = embedding_model.encode_texts(chunks)
         logger.info(f"Generated embeddings with shape {embeddings.shape}")
         
@@ -565,7 +557,7 @@ def process_confluence():
         for i, chunk in enumerate(chunks):
             metadata = {
                 'page_id': result['metadata']['content_id'],
-                'title': result['metadata']['title'],
+                'title': title,
                 'url': url,
                 'chunk_index': i,
                 'text': chunk
@@ -614,13 +606,107 @@ def fetch_content():
             
         # Extract text content from the URL
         logger.info(f"Extracting content from URL: {url}")
-        content = extract_confluence_text(url)
+        title, content = extract_confluence_text(url)
         logger.info(f"Successfully extracted content with length: {len(content)}")
         
-        return jsonify({'content': content})
+        return jsonify({'title': title, 'content': content})
         
     except Exception as e:
         logger.error(f"Error fetching content: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+def rebuild_metadata():
+    """Rebuild metadata from the FAISS index"""
+    try:
+        # Load the FAISS index
+        faiss_index = FAISSIndex(config["search"]["index_path"])
+        
+        # Get all documents from the index
+        documents = {}
+        for i in range(faiss_index.index.ntotal):
+            metadata = faiss_index.index.reconstruct(i)
+            if isinstance(metadata, dict):
+                url = metadata.get('url')
+                if url and url not in documents:
+                    documents[url] = {
+                        'title': metadata.get('title', ''),
+                        'url': url,
+                        'last_updated': metadata.get('last_updated', '')
+                    }
+        
+        # Save the rebuilt metadata
+        with open(config["search"]["metadata_path"], 'wb') as f:
+            pickle.dump(list(documents.values()), f)
+            
+        return list(documents.values())
+    except Exception as e:
+        logger.error(f"Error rebuilding metadata: {e}", exc_info=True)
+        return []
+
+@app.route('/indexed_documents')
+def get_indexed_documents():
+    """Get list of indexed documents"""
+    try:
+        # Get absolute path to data/processed directory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        processed_dir = os.path.join(base_dir, 'data', 'processed')
+        
+        logger.info(f"Looking for documents in: {processed_dir}")
+        
+        if not os.path.exists(processed_dir):
+            logger.warning(f"Directory does not exist: {processed_dir}")
+            return jsonify({'documents': []})
+            
+        documents = []
+        files = os.listdir(processed_dir)
+        logger.info(f"Found {len(files)} files in processed directory")
+        
+        for filename in files:
+            file_path = os.path.join(processed_dir, filename)
+            if os.path.isfile(file_path):
+                # Get file metadata
+                stat = os.stat(file_path)
+                last_modified = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                
+                # Try to read the title from the file content
+                title = filename  # Default to filename if no title found
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        logger.info(f"File content for {filename}:")
+                        logger.info(f"First 200 chars: {content[:200]}")
+                        
+                        # Try to parse as JSON to get the title
+                        try:
+                            data = json.loads(content)
+                            logger.info(f"Parsed JSON data: {data}")
+                            if isinstance(data, dict) and 'title' in data:
+                                title = data['title']
+                                logger.info(f"Found title in JSON: {title}")
+                        except json.JSONDecodeError:
+                            logger.info("File is not JSON format")
+                            # If not JSON, try to find a title in the content
+                            lines = content.split('\n')
+                            for line in lines:
+                                if line.strip().startswith('title:'):
+                                    title = line.replace('title:', '').strip()
+                                    logger.info(f"Found title in content: {title}")
+                                    break
+                except Exception as e:
+                    logger.warning(f"Could not read title from {filename}: {e}")
+                
+                documents.append({
+                    'title': title,
+                    'url': filename,
+                    'last_updated': last_modified
+                })
+                logger.info(f"Added document: {title}")
+        
+        logger.info(f"Returning {len(documents)} documents")
+        return jsonify({'documents': documents})
+        
+    except Exception as e:
+        logger.error(f"Error fetching indexed documents: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
