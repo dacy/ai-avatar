@@ -23,41 +23,36 @@ bitsandbytes==0.42.0
 openai-whisper==20231117
 sounddevice==0.4.6
 librosa==0.10.1
+vosk==0.3.45
+TTS==0.22.0
+piper-tts==0.1.0
+
+# Web Framework
+flask-cors==4.0.0
 
 # Development
 black==24.2.0
 flake8==7.0.0
 pytest==8.0.2
-
-# Development dependencies
 pytest-cov==4.1.0
+pytest-asyncio==0.23.5
 
 # Web scraping
-playwright>=1.41.0
-html5lib>=1.1
-beautifulsoup4>=4.12.0
+playwright==1.41.0
+html5lib==1.1
 
 # Search engine
-duckduckgo-search>=7.2.1
+duckduckgo-search==7.2.1
 
 # LLM integration
-openai>=1.59.8 # o1 support
-anthropic>=0.42.0
-python-dotenv>=1.0.0
-
-# Testing
-unittest2>=1.1.0
-pytest-asyncio>=0.23.5
-
-# Google Generative AI
-google-generativeai
-
-# gRPC, for Google Generative AI preventing WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-grpcio>=1.54.0
+openai==1.59.8
+anthropic==0.42.0
+google-generativeai==0.3.2
+grpcio==1.54.0
 
 # Common dependencies
-setuptools>=65.5.1  # Required for some packages
-wheel>=0.38.0  # Required for building packages
+setuptools==65.5.1
+wheel==0.38.0
 
 # AI Avatar dependencies
 flask>=3.0.0  # Web server
