@@ -89,6 +89,34 @@
                             <div class="results-content"></div>
                         </div>
                     </section>
+
+                    <!-- System Status Section -->
+                    <div class="system-status">
+                        <div class="status-header">
+                            <h3>System Status</h3>
+                            <span class="status-indicator {{ system_status.status }}">{{ system_status.status }}</span>
+                        </div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">Device:</span>
+                                <span class="status-value">{{ system_status.device }}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">PyTorch:</span>
+                                <span class="status-value">{{ system_status.pytorch_version }}</span>
+                            </div>
+                            {% if system_status.cuda_available == "True" %}
+                            <div class="status-item">
+                                <span class="status-label">CUDA:</span>
+                                <span class="status-value">{{ system_status.cuda_version }}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">GPU:</span>
+                                <span class="status-value">{{ system_status.gpu_name }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </main>
 
                 <footer>
@@ -114,5 +142,6 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
 </html> 

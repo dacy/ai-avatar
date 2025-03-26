@@ -269,14 +269,100 @@ input[type="text"]:focus {
 }
 
 .answer-section {
-    margin-bottom: var(--spacing-lg);
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+    box-shadow: var(--shadow);
 }
 
 .answer-section h3 {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Markdown Styles */
+.answer-section p {
+    margin-bottom: var(--spacing-md);
+    line-height: 1.6;
+}
+
+.answer-section code {
+    background-color: var(--bg-secondary);
+    padding: 0.2em 0.4em;
+    border-radius: var(--border-radius-sm);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+}
+
+.answer-section pre {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    overflow-x: auto;
+    margin: var(--spacing-md) 0;
+}
+
+.answer-section pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+.answer-section ul, .answer-section ol {
+    margin: var(--spacing-md) 0;
+    padding-left: var(--spacing-xl);
+}
+
+.answer-section li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.answer-section blockquote {
+    border-left: 4px solid var(--primary-color);
+    margin: var(--spacing-md) 0;
+    padding-left: var(--spacing-md);
+    color: var(--text-muted);
+}
+
+.answer-section a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.answer-section a:hover {
+    text-decoration: underline;
+}
+
+.answer-section strong {
     color: var(--text-color);
-    font-size: 1.1rem;
     font-weight: 600;
-    margin-bottom: var(--spacing-sm);
+}
+
+.answer-section em {
+    font-style: italic;
+}
+
+.answer-section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-md) 0;
+}
+
+.answer-section th, .answer-section td {
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.answer-section th {
+    background-color: var(--bg-secondary);
+    font-weight: 600;
+}
+
+.answer-section tr:nth-child(even) {
+    background-color: var(--bg-secondary);
 }
 
 .sources-section {
@@ -631,4 +717,71 @@ footer {
     content: "error";
     font-family: "Material Icons";
     font-size: 1.2rem;
+}
+
+.system-status {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-top: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.system-status h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-color);
+    font-size: 1.1rem;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.status-label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.status-value {
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.status-indicator {
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.status-indicator.operational {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.status-indicator.warning {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.status-indicator.error {
+    background-color: var(--error-color);
+    color: white;
 } 

@@ -1,4 +1,4 @@
-# AI Avatar - Semantic Search Tool
+# AI Avatar - Voice Search Tool
 
 A semantic search tool that processes text documents and answers questions about their content. The tool uses semantic embeddings and vector similarity search to find relevant information, and a question-answering model to extract precise answers.
 
@@ -9,8 +9,11 @@ A semantic search tool that processes text documents and answers questions about
 - **Question Answering**: Uses Ollama for generating answers from context
 - **On-Premise Processing**: All data processing happens locally for privacy
 - **Modern UI**: Clean, responsive interface with real-time feedback
+- Support for both CPU and GPU processing
+- Real-time system status monitoring
+- Markdown rendering for formatted responses
 
-## Prerequisites
+## System Requirements
 
 - Python 3.8+
 - Ollama installed and running locally
@@ -27,18 +30,13 @@ cd ai-avatar
 2. Create and activate a virtual environment:
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+.\venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
 ```
 
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
-```
-
-4. Configure environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
 ```
 
 ## Usage
@@ -55,16 +53,16 @@ python full_server.py
    - Click "Submit Question" or press Enter
    - The system will search through indexed documents and provide an answer
 
-## Architecture
+## System Status
 
 - **Frontend**: HTML, CSS, JavaScript with modern UI components
 - **Backend**: Python Flask server
 - **Search Engine**: FAISS for vector similarity search
-- **LLM**: Ollama for question answering
+- **LLM**: API interface with Ollama or function invokatino using Transformers for question answering
 - **Vector Database**: FAISS for efficient similarity search
 - **Embedding Model**: SentenceTransformer with "all-MiniLM-L6-v2"
 
-## Development Status
+## Project Structure
 
 ### Implemented Features
 - ✅ Text-based search interface
@@ -79,7 +77,7 @@ python full_server.py
 - 🔄 Voice output
 - 🔄 Confluence integration
 
-## Contributing
+## Development
 
 1. Fork the repository
 2. Create a feature branch

@@ -106,7 +106,7 @@ class GenerativeQA:
             
             # Clean up the answer
             # Remove thinking process if present
-            if "<think>" in answer:
+            if "</think>" in answer:
                 answer = answer.split("</think>")[-1].strip()
             
             # Remove any instances of "Answer:" or "answer:"

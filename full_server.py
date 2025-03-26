@@ -17,6 +17,7 @@ import json
 import asyncio
 import pickle
 from datetime import datetime
+from src.utils.system_status import get_system_status
 
 print("Starting full_server.py...")
 
@@ -51,6 +52,7 @@ except ImportError as e:
 # Import QA extractors
 from src.qa.extractive import ExtractiveQA
 from src.qa.generative import GenerativeQA
+from src.qa import create_qa  # Add this import
 
 # Calculate static and template folder paths
 static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
@@ -109,20 +111,7 @@ logger.info(f"Vector directory: {config['storage']['vector_dir']}")
 
 # Initialize QA extractor based on config
 logger.info("Step 3: Initializing QA extractor...")
-qa_mode = config["qa"]["mode"]
-if qa_mode == "generative":
-    logger.info("Using generative QA mode with Ollama")
-    qa_extractor = GenerativeQA(
-        model_name=config["qa"]["generative"]["model_name"],
-        api_url=config["qa"]["generative"]["api_url"]
-    )
-elif qa_mode == "extractive":
-    logger.info("Using extractive QA mode with RoBERTa")
-    qa_extractor = ExtractiveQA(
-        model_name=config["qa"]["extractive"]["model_name"]
-    )
-else:
-    raise ValueError(f"Invalid QA mode: {qa_mode}. Must be 'generative' or 'extractive'")
+qa_extractor = create_qa(config)  # Use the factory function
 logger.info("QA extractor initialized successfully")
 
 # Initialize embedding model and FAISS index
@@ -217,11 +206,8 @@ def check_ollama_availability() -> bool:
 
 @app.route('/')
 def index():
-    try:
-        return render_template('index.html')
-    except Exception as e:
-        logger.error(f"Error rendering template: {str(e)}", exc_info=True)
-        return f"Error loading template: {str(e)}", 500
+    """Render the main page."""
+    return render_template('index.html', system_status=get_system_status())
 
 def format_source_path(path: str) -> str:
     """Format the source path to be more readable"""
@@ -442,16 +428,30 @@ def ask():
 def text_to_speech(text: str) -> Optional[str]:
     """Convert text to speech using Ollama"""
     try:
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": config["qa"]["generative"]["model_name"],  # Use the same model as QA
-                "prompt": f"Convert this text to speech: {text}",
-                "stream": False
-            }
-        )
-        response.raise_for_status()
-        return response.json()["response"]
+        # Get TTS config
+        tts_config = config.get("tts", {})
+        provider = tts_config.get("provider", "ollama")
+        
+        if provider == "ollama":
+            # Get Ollama TTS settings
+            ollama_config = tts_config.get("ollama", {})
+            model_name = ollama_config.get("model_name", "deepseek-r1:1.5b")
+            api_url = ollama_config.get("api_url", "http://localhost:11434")
+            
+            response = requests.post(
+                f"{api_url}/api/generate",
+                json={
+                    "model": model_name,
+                    "prompt": f"Convert this text to speech: {text}",
+                    "stream": False
+                }
+            )
+            response.raise_for_status()
+            return response.json()["response"]
+            
+        else:
+            raise ValueError(f"Unsupported TTS provider: {provider}")
+            
     except Exception as e:
         logger.error(f"Error converting text to speech: {e}")
         return None

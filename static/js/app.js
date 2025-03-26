@@ -99,11 +99,11 @@ function showResults(data) {
         return;
     }
     
-    // Create HTML for the answer
+    // Create HTML for the answer with markdown rendering
     let html = `
         <div class="answer-section">
             <h3>Answer</h3>
-            <p>${data.answer}</p>
+            <div class="markdown-content">${marked.parse(data.answer)}</div>
         </div>
     `;
     
