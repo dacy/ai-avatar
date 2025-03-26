@@ -19,35 +19,17 @@ transformers==4.38.2
 accelerate==0.27.2
 bitsandbytes==0.42.0
 
-# Whisper for speech recognition
+# Speech Processing
 openai-whisper==20231117
+sounddevice==0.4.6
+librosa==0.10.1
 
-# Ollama for text generation
-ollama==0.1.6
-
-# Development dependencies
-pytest==8.0.2
+# Development
 black==24.2.0
 flake8==7.0.0
+pytest==8.0.2
 
-# Web Framework
-flask-cors==4.0.0
-
-# Confluence Integration
-atlassian-python-api==3.41.4
-requests==2.31.0
-
-# Machine Learning
-sentence-transformers==2.5.1
-scikit-learn==1.4.1
-
-# Speech Processing
-piper-tts==0.1.0
-
-# Utilities
-tqdm==4.66.2
-
-# Testing
+# Development dependencies
 pytest-cov==4.1.0
 
 # Web scraping
