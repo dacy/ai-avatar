@@ -35,18 +35,10 @@ def create_qa(config: Dict[str, Any], config_path: str = "config/config.yaml"):
             )
         elif provider == 'local':
             local_config = gen_config.get('local', {})
-            offline_only = local_config.get('offline_only', True)
             
-            if offline_only:
-                return LocalGenerativeQA(
-                    model_path=local_config['model_path'],
-                    offline_only=True
-                )
-            else:
-                return LocalGenerativeQA(
-                    model_name=local_config['model_name'],
-                    offline_only=False
-                )
+            return LocalGenerativeQA(
+                model_name=local_config['model_name']
+            )
         else:
             raise ValueError(f"Unsupported QA provider: {provider}")
             

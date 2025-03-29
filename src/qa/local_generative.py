@@ -16,14 +16,12 @@ import yaml
 class LocalGenerativeQA:
     """QA extractor using local Transformers models for generating natural language answers from context."""
     
-    def __init__(self, model_path: Optional[str] = None, model_name: Optional[str] = None, offline_only: bool = False):
+    def __init__(self, model_name: Optional[str] = None):
         """
         Initialize the QA extractor.
         
         Args:
-            model_path: Path to local model directory (for offline mode)
-            model_name: HuggingFace model name (for online mode)
-            offline_only: Whether to force offline mode regardless of model_name
+            model_name: HuggingFace model name 
         """
         # Set device
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -47,57 +45,29 @@ class LocalGenerativeQA:
             logger.info("CUDA not available, using CPU with FP32")
             quantization_config = None
         
-        # Set offline mode based on configuration
-        self.offline_only = offline_only
+       
+        if model_name is None:
+            raise ValueError("model_name must be provided") 
+        self.model_name = model_name
+        logger.info(f"Loading model from Hugging Face: {self.model_name}")
         
-        if self.offline_only:
-            if model_path is None:
-                raise ValueError("model_path must be provided when offline_only is True")
-            # Offline mode - use local files
-            self.model_path = model_path
-            logger.info(f"Loading model from local path: {self.model_path}")
-            
-            if not os.path.exists(self.model_path):
-                raise ValueError(f"Model directory not found: {self.model_path}")
-                
-            # Load model and tokenizer from local directory
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path,
-                local_files_only=True
-            )
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                device_map="auto",  # Automatically moves the model to GPU
-                quantization_config=quantization_config,
-                local_files_only=True
-            )
-            
-        else:
-            if model_name is None:
-                raise ValueError("model_name must be provided when offline_only is False")
-            # Online mode - download from Hugging Face
-            self.model_name = model_name
-            self.model_path = os.path.join("models", model_name.split("/")[-1])
-            logger.info(f"Loading model from Hugging Face: {self.model_name}")
-            logger.info(f"Model will be saved to: {self.model_path}")
-            
-            # Load model and tokenizer from Hugging Face
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name
-            )
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                device_map="auto",
-                low_cpu_mem_usage=True,
-                quantization_config=quantization_config,
-                torch_dtype=torch.float16 if self.device == "cuda" and not quantization_config else torch.float32
-            )
+        # Load model and tokenizer from Hugging Face
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_name
+        )
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            device_map="auto",
+            low_cpu_mem_usage=True,
+            quantization_config=quantization_config,
+            torch_dtype=torch.float16 if self.device == "cuda" and not quantization_config else torch.float32
+        )
             
         # Set default generation parameters
         self.max_new_tokens = 512
         self.temperature = 0.7
             
-        logger.info(f"Initialized local generative QA with model from: {self.model_path if self.offline_only else self.model_name}")
+        logger.info(f"Initialized local generative QA with model from: {self.model_name}")
 
     def extract_answers_from_multiple_contexts(self, question: str, contexts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -159,7 +129,7 @@ class LocalGenerativeQA:
             logger.info(f"Input shape: {inputs['input_ids'].shape}")
             
             # Generate response
-            logger.info(f"Generating response with model: {self.model_path if self.offline_only else self.model_name}")
+            logger.info(f"Generating response with model: {self.model_name}")
             
             # Try different generation parameters if the first attempt fails
             generation_params = {

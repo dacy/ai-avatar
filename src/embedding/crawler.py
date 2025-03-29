@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List, Union
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, BrowserType
 import html5lib
 from urllib.parse import urlparse
 import json
@@ -9,15 +9,19 @@ import os
 from pathlib import Path
 import yaml
 import re
+import random
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Initialize logger
 logger = logging.getLogger(__name__)
 
-class ConfluenceCrawler:
+# Configure logging
+if not logger.hasHandlers():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+
+class WebCrawler:
     """A general-purpose web crawler that converts web pages into structured JSON format."""
     
     def __init__(self, base_url: Optional[str] = None, config_path: Optional[str] = None):
@@ -36,6 +40,12 @@ class ConfluenceCrawler:
         
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
+        
+        # Log browser configuration
+        browser_config = self.config.get("browser", {})
+        logger.info("Browser configuration loaded:")
+        logger.info(f"  User data directory: {browser_config.get('user_data_dir', 'Not set')}")
+        logger.info(f"  Headless: {browser_config.get('headless', True)}")
         
         # Create necessary directories
         self._create_directories()
@@ -86,21 +96,27 @@ class ConfluenceCrawler:
             return f"{self.base_url}/{url.lstrip('/')}"
         return url
         
-    async def _fetch_page(self, url: str, context) -> Optional[str]:
-        """Asynchronously fetch a web page's content."""
-        page = await context.new_page()
+    async def _fetch_page(self, page: Any, url: str) -> str:
+        """Fetch and extract content from a page."""
         try:
-            logger.info(f"Fetching page: {url}")
+
+            
+            # Navigate to the page
+            logger.info(f"Fetching {url}")
             await page.goto(url)
             await page.wait_for_load_state('networkidle')
+            # If browser is not headless, wait for user input before starting
+            if not self.config.get("browser", {}).get("headless", True):
+                input("Please log in to the browser. Press Enter when you're done...")
+            # Get the page content
             content = await page.content()
             logger.info(f"Successfully fetched {url}")
+            
             return content
+            
         except Exception as e:
             logger.error(f"Error fetching {url}: {str(e)}")
-            return None
-        finally:
-            await page.close()
+            return ""
             
     def _parse_html(self, html_content: Optional[str]) -> tuple[str, str, Dict[str, Any]]:
         """Parse HTML content and extract structured content."""
@@ -112,42 +128,33 @@ class ConfluenceCrawler:
             result = []
             seen_texts = set()  # To avoid duplicates
             title = "Untitled"
-            structure = {"title": "Untitled", "content": []}
-            current_section = None
             
             def should_skip_element(elem) -> bool:
                 """Check if the element should be skipped."""
                 # Skip script and style tags
                 if elem.tag in ['{http://www.w3.org/1999/xhtml}script', 
-                              '{http://www.w3.org/1999/xhtml}style',
-                              '{http://www.w3.org/1999/xhtml}noscript',
-                              '{http://www.w3.org/1999/xhtml}iframe']:
+                              '{http://www.w3.org/1999/xhtml}style']:
                     return True
                 # Skip empty elements or elements with only whitespace
                 if not any(text.strip() for text in elem.itertext()):
-                    return True
-                # Skip navigation and footer elements
-                if any(attr.endswith('role') and value in ['navigation', 'banner', 'complementary'] 
-                      for attr, value in elem.items()):
                     return True
                 return False
             
             def process_element(elem, depth=0):
                 """Process an element and its children recursively."""
-                nonlocal title, current_section
+                nonlocal title
                 
                 if should_skip_element(elem):
                     return
                 
                 # Try to find the title
-                if not title or title == "Untitled":
+                if title == "Untitled":
                     # Check meta title first
                     meta_title = document.find('.//{http://www.w3.org/1999/xhtml}meta[@property="og:title"]')
                     if meta_title is not None:
                         for attr, value in meta_title.items():
                             if attr.endswith('content'):
                                 title = value.strip()
-                                structure["title"] = title
                                 break
                     
                     # If no meta title, check h1
@@ -155,92 +162,37 @@ class ConfluenceCrawler:
                         h1 = document.find('.//{http://www.w3.org/1999/xhtml}h1')
                         if h1 is not None and h1.text:
                             title = h1.text.strip()
-                            structure["title"] = title
                 
-                # Handle headings
-                if elem.tag in ['{http://www.w3.org/1999/xhtml}h1', '{http://www.w3.org/1999/xhtml}h2', 
-                              '{http://www.w3.org/1999/xhtml}h3', '{http://www.w3.org/1999/xhtml}h4']:
-                    text = elem.text.strip() if elem.text else ""
-                    if text:
-                        # Create new section
-                        current_section = {
-                            "type": "section",
-                            "heading": text,
-                            "content": [],
-                            "level": int(elem.tag[-1])
-                        }
-                        structure["content"].append(current_section)
-                        # Add heading to flattened text with proper markdown formatting
-                        result.append("  " * (depth-1) + "#" * int(elem.tag[-1]) + f" {text}")
-                        seen_texts.add(text)
-                
-                # Handle paragraphs
-                elif elem.tag == '{http://www.w3.org/1999/xhtml}p':
-                    text = ' '.join(t.strip() for t in elem.itertext() if t.strip())
+                # Handle text content
+                if hasattr(elem, 'text') and elem.text:
+                    text = elem.text.strip()
                     if text and text not in seen_texts:
-                        # Add paragraph to structure
-                        para_section = {
-                            "type": "paragraph",
-                            "content": text
-                        }
-                        if current_section:
-                            current_section["content"].append(para_section)
+                        # Check if this is an anchor tag
+                        if elem.tag == '{http://www.w3.org/1999/xhtml}a':
+                            href = None
+                            for attr, value in elem.items():
+                                if attr.endswith('href'):
+                                    href = value
+                                    break
+                            if href and not href.startswith(('#', 'javascript:')):
+                                # Format as markdown link
+                                link_text = f"[{text}]({href})"
+                                result.append(link_text)
+                                seen_texts.add(text)
                         else:
-                            structure["content"].append(para_section)
-                        # Add to flattened text
-                        result.append(text)
-                        seen_texts.add(text)
-                
-                # Handle lists
-                elif elem.tag in ['{http://www.w3.org/1999/xhtml}ul', '{http://www.w3.org/1999/xhtml}ol']:
-                    list_items = []
-                    for item in elem.findall('.//{http://www.w3.org/1999/xhtml}li'):
-                        item_text = ' '.join(t.strip() for t in item.itertext() if t.strip())
-                        if item_text and item_text not in seen_texts:
-                            list_items.append(item_text)
-                            # Add list item to flattened text
-                            prefix = "1. " if elem.tag == '{http://www.w3.org/1999/xhtml}ol' else "- "
-                            result.append("  " * depth + prefix + item_text)
-                            seen_texts.add(item_text)
-                    
-                    if list_items:
-                        list_section = {
-                            "type": "list",
-                            "items": list_items,
-                            "ordered": elem.tag == '{http://www.w3.org/1999/xhtml}ol'
-                        }
-                        if current_section:
-                            current_section["content"].append(list_section)
-                        else:
-                            structure["content"].append(list_section)
-                
-                # Handle links
-                elif elem.tag == '{http://www.w3.org/1999/xhtml}a':
-                    text = ' '.join(t.strip() for t in elem.itertext() if t.strip())
-                    if text and text not in seen_texts:
-                        href = None
-                        for attr, value in elem.items():
-                            if attr.endswith('href'):
-                                href = value
-                                break
-                        if href and not href.startswith(('#', 'javascript:', 'mailto:')):
-                            # Add link to structure
-                            link_section = {
-                                "type": "link",
-                                "text": text,
-                                "url": href
-                            }
-                            if current_section:
-                                current_section["content"].append(link_section)
-                            else:
-                                structure["content"].append(link_section)
-                            # Add to flattened text
-                            result.append(f"[{text}]({href})")
+                            result.append(text)
                             seen_texts.add(text)
                 
                 # Process children
                 for child in elem:
                     process_element(child, depth + 1)
+                
+                # Handle tail text
+                if hasattr(elem, 'tail') and elem.tail:
+                    tail = elem.tail.strip()
+                    if tail and tail not in seen_texts:
+                        result.append(tail)
+                        seen_texts.add(tail)
             
             # Start processing from the body tag
             body = document.find('.//{http://www.w3.org/1999/xhtml}body')
@@ -250,23 +202,166 @@ class ConfluenceCrawler:
                 # Fallback to processing the entire document
                 process_element(document)
             
+            # Filter out common unwanted patterns
+            filtered_result = []
+            for line in result:
+                # Skip lines that are likely to be noise
+                if any(pattern in line.lower() for pattern in [
+                    'var ', 
+                    'function()', 
+                    '.js',
+                    '.css',
+                    'google-analytics',
+                    'disqus',
+                    '{',
+                    '}'
+                ]):
+                    continue
+                filtered_result.append(line)
+            
             # Join lines with proper spacing
-            flattened_text = '\n'.join(result)
+            flattened_text = ' '.join(filtered_result)
             
-            # Clean up extra whitespace while preserving structure
-            flattened_text = re.sub(r'\n\s*\n', '\n\n', flattened_text)
-            
-            return title, flattened_text, structure
+            # Clean up extra whitespace
+            flattened_text = re.sub(r'\s+', ' ', flattened_text).strip()
+            return title, flattened_text
             
         except Exception as e:
             logger.error(f"Error parsing HTML: {str(e)}")
             return "Untitled", "", {"title": "Untitled", "content": []}
             
-    async def crawl_page(self, url: str) -> Dict[str, Any]:
+    async def _get_browser_context(self, playwright) -> Any:
+        """Get a browser context with if configured."""
+        browser_config = self.config.get("browser", {})
+        user_data_dir = browser_config.get("user_data_dir", "")
+        headless = browser_config.get("headless", False)
+
+        # Log configuration
+        logger.info("Browser context configuration:")
+        logger.info(f"  User data directory: {user_data_dir}")
+        logger.info(f"  Headless: {headless}")
+        logger.info(f"  User data directory exists: {os.path.exists(user_data_dir) if user_data_dir else False}")
+
+        # Common browser arguments
+        browser_args = [
+            '--disable-web-security',  # Disable web security for testing
+            '--no-sandbox',  # Required for some environments
+            '--disable-setuid-sandbox',  # Required for some environments
+            '--disable-dev-shm-usage',  # Overcome limited resource problems
+            '--disable-accelerated-2d-canvas',  # Disable GPU hardware acceleration
+            '--disable-gpu',  # Disable GPU hardware acceleration
+            '--window-size=1920,1080',  # Set a standard window size
+            '--disable-blink-features=AutomationControlled',  # Hide automation
+            '--disable-features=IsolateOrigins,site-per-process',  # Disable site isolation
+            '--disable-site-isolation-trials',  # Disable site isolation trials
+            '--disable-features=IsolateOrigins,site-per-process,AutomationControlled',  # Additional anti-bot flags
+            '--disable-blink-features',  # Disable automation flags
+            '--disable-features=AutomationControlled',  # Disable automation control
+            '--disable-web-security',  # Disable web security
+            '--disable-features=IsolateOrigins,site-per-process,AutomationControlled,WebSecurity',  # Comprehensive flags
+            '--remote-debugging-port=9222',  # Enable remote debugging
+        ]
+
+        # Common user agent
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+
+        if user_data_dir and os.path.exists(user_data_dir):
+            # Try Chrome first
+            try:
+                logger.info(f"Browser arguments: {browser_args}")
+                
+                # Launch browser with persistent context
+                context = await playwright.chromium.launch_persistent_context(
+                    user_data_dir=user_data_dir,
+                    headless=headless,
+                    args=browser_args,
+                    java_script_enabled=True,  # Explicitly enable JavaScript
+                    bypass_csp=True,  # Bypass Content Security Policy
+                    user_agent=user_agent,  # Set user agent
+                    viewport={'width': 1920, 'height': 1080},  # Set viewport
+                    extra_http_headers={  # Add common headers
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'none',
+                        'Sec-Fetch-User': '?1',
+                        'Cache-Control': 'max-age=0',
+                        'DNT': '1',  # Do Not Track
+                        'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                        'Sec-Ch-Ua-Mobile': '?0',
+                        'Sec-Ch-Ua-Platform': '"Windows"'
+                    }
+                )
+                
+                return context
+            except Exception as e:
+                logger.error(f"Failed to launch Chrome with persistent context: {e}")
+                logger.error(f"Error type: {type(e).__name__}")
+                logger.error(f"Error details: {str(e)}")
+                # Fall back to default browser
+                logger.info("Falling back to default browser without persistent context")
+                browser = await playwright.chromium.launch(headless=headless, args=browser_args)
+                context = await browser.new_context(
+                    java_script_enabled=True,
+                    bypass_csp=True,
+                    user_agent=user_agent,
+                    viewport={'width': 1920, 'height': 1080},
+                    extra_http_headers={
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'none',
+                        'Sec-Fetch-User': '?1',
+                        'Cache-Control': 'max-age=0',
+                        'DNT': '1',  # Do Not Track
+                        'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                        'Sec-Ch-Ua-Mobile': '?0',
+                        'Sec-Ch-Ua-Platform': '"Windows"'
+                    }
+                )
+                return context
+        else:
+            # Use default browser without persistent context
+            logger.info("No user data directory found or directory does not exist, using regular launch")
+            browser = await playwright.chromium.launch(headless=headless, args=browser_args)
+            context = await browser.new_context(
+                java_script_enabled=True,
+                bypass_csp=True,
+                user_agent=user_agent,
+                viewport={'width': 1920, 'height': 1080},
+                extra_http_headers={
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0',
+                    'DNT': '1',  # Do Not Track
+                    'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"'
+                }
+            )
+            return context
+
+    async def crawl_page(self, url: str, context: Any = None) -> Dict[str, Any]:
         """Crawl a single web page and extract its content.
         
         Args:
             url: The URL of the web page to crawl.
+            context: Optional browser context to use. If None, a new context will be created.
             
         Returns:
             A dictionary containing:
@@ -278,16 +373,59 @@ class ConfluenceCrawler:
         """
         url = self._normalize_url(url)
         
-        async with async_playwright() as p:
-            browser = await p.chromium.launch()
+        # If no context provided, create one
+        should_close_context = context is None
+        playwright = None
+        if context is None:
+            playwright = await async_playwright().start()
+            context = await self._get_browser_context(playwright)
+        
+        try:
+            # Create a new page from the context
+            page = await context.new_page()
             try:
-                context = await browser.new_context()
-                html_content = await self._fetch_page(url, context)
+                # Add random delay between requests (1-3 seconds)
+                await asyncio.sleep(1 + random.random() * 2)
+                
+                # Add random mouse movements to appear more human-like
+                await page.mouse.move(
+                    random.randint(0, 500),
+                    random.randint(0, 500)
+                )
+                
+                # Add random viewport size variation
+                await page.set_viewport_size({
+                    'width': 1920 + random.randint(-100, 100),
+                    'height': 1080 + random.randint(-100, 100)
+                })
+                
+                # Add random user agent variation
+                await page.set_extra_http_headers({
+                    'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.{random.randint(0, 9999)} Safari/537.36'
+                })
+                
+                # Fetch the page content
+                html_content = await self._fetch_page(page, url)
                 
                 if not html_content:
-                    raise Exception(f"Failed to fetch content from {url}")
+                    error_msg = f"No content extracted from page: {url}"
+                    logger.error(error_msg)
+                    return {
+                        'title': 'Error',
+                        'content': error_msg,
+                        'url': url,
+                        'metadata': {
+                            'url': url,
+                            'error': error_msg,
+                            'content_length': 0,
+                            'has_links': False,
+                            'structure_type': 'error',
+                            'content_id': self._get_page_id(url)
+                        }
+                    }
                 
-                title, content, structure = self._parse_html(html_content)
+                # Parse the HTML content
+                title, content = self._parse_html(html_content)
                 
                 # Extract additional metadata
                 metadata = {
@@ -303,8 +441,7 @@ class ConfluenceCrawler:
                     'title': title,
                     'content': content,
                     'url': url,
-                    'metadata': metadata,
-                    'structure': structure
+                    'metadata': metadata
                 }
                 
                 # Save the data
@@ -312,48 +449,38 @@ class ConfluenceCrawler:
                 
                 return page_data
                 
+            except Exception as e:
+                error_msg = f"Error processing page {url}: {str(e)}"
+                logger.error(error_msg)
+                return {
+                    'title': 'Error',
+                    'content': error_msg,
+                    'url': url,
+                    'metadata': {
+                        'url': url,
+                        'error': error_msg,
+                        'content_length': 0,
+                        'has_links': False,
+                        'structure_type': 'error',
+                        'content_id': self._get_page_id(url)
+                    }
+                }
             finally:
-                await browser.close()
+                # Always close the page
+                await page.close()
                 
-    async def crawl_pages(self, urls: list[str], max_concurrent: int = 5) -> list[Dict[str, Any]]:
-        """Crawl multiple web pages concurrently.
-        
-        Args:
-            urls: List of URLs to crawl
-            max_concurrent: Maximum number of concurrent browser instances
-            
-        Returns:
-            List of dictionaries containing the crawled content for each page
-        """
-        async with async_playwright() as p:
-            browser = await p.chromium.launch()
-            try:
-                # Create browser contexts
-                n_contexts = min(len(urls), max_concurrent)
-                contexts = [await browser.new_context() for _ in range(n_contexts)]
+        finally:
+            # Close context and playwright if we created them
+            if should_close_context:
+                try:
+                    await context.close()
+                except Exception as e:
+                    logger.warning(f"Error closing context: {e}")
+                if playwright:
+                    try:
+                        await playwright.stop()
+                    except Exception as e:
+                        logger.warning(f"Error stopping playwright: {e}")
+                    
+   
                 
-                # Create tasks for each URL
-                tasks = []
-                for i, url in enumerate(urls):
-                    context = contexts[i % len(contexts)]
-                    task = self.crawl_page(url)
-                    tasks.append(task)
-                
-                # Gather results
-                results = await asyncio.gather(*tasks)
-                return results
-                
-            finally:
-                await browser.close()
-                
-    def crawl(self, urls: list[str], max_concurrent: int = 5) -> list[Dict[str, Any]]:
-        """Synchronous wrapper for crawling multiple pages.
-        
-        Args:
-            urls: List of URLs to crawl
-            max_concurrent: Maximum number of concurrent browser instances
-            
-        Returns:
-            List of dictionaries containing the crawled content for each page
-        """
-        return asyncio.run(self.crawl_pages(urls, max_concurrent)) 

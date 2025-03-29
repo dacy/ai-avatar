@@ -7,9 +7,14 @@ confluence:
   api_token: "your-api-token"
   space_key: "your-space-key"
 
+# Browser settings for web crawling
+browser:
+  user_data_dir: ""  # Path to Chrome/Edge user data directory (e.g., "C:/Users/username/AppData/Local/Google/Chrome/User Data")
+  headless: true  # Whether to run browser in headless mode
+
 # Embedding model settings
 embedding:
-  model_name: "all-MiniLM-L6-v2"  # HuggingFace model for generating embeddings
+  model_name: "all-MiniLM-L6-v2"  # # HuggingFace transfomers model name; put local path if you wish not to download from internet
   dimension: 384  # Dimension of the embeddings
   chunk_size: 512  # Maximum size of text chunks for embedding
   overlap: 50  # Number of characters to overlap between chunks
@@ -45,9 +50,7 @@ qa:
     
     # Local Transformers settings (used when provider="local")
     local:
-      offline_only: true  # Whether to force offline mode (no downloads)
-      model_path: "local-model/llama-3.2-transformers-3b-v1"  # Path to local model directory containing model files (config.json, pytorch_model.bin, etc.)
-      model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"  # HuggingFace model name (only used when offline_only is false)
+      model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"  # HuggingFace transfomers model name; put local path if you wish not to download from internet
       device: "cuda"  # Device to run the model on ("cuda" or "cpu")
       max_new_tokens: 512  # Maximum tokens to generate
       temperature: 0.7  # Temperature for text generation

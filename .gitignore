@@ -58,3 +58,6 @@ data/
 recycle_bin/
 log/
 local-model/
+*.faiss
+*.metadata
+config/config.yaml

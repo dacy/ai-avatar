@@ -20,7 +20,7 @@ import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import application modules
-from src.embedding.model import EmbeddingModel
+from src.embedding.embedder import TextEmbedder
 from src.search.faiss_index import FAISSIndex
 
 def load_config():
@@ -183,9 +183,11 @@ def main():
                 "text": chunk
             })
     
-    # Initialize embedding model
+    # Initialize embedder
     logger.info("Initializing embedding model...")
-    embedding_model = EmbeddingModel(model_name=config["embedding"]["model"])
+    embedding_model = TextEmbedder(
+        model_name=config["embedding"]["model"]
+    )
     
     # Generate embeddings
     logger.info("Generating embeddings...")

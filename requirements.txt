@@ -1,5 +1,6 @@
 # Core dependencies
 flask==3.0.2
+flask-cors==4.0.0
 requests==2.31.0
 python-dotenv==1.0.1
 pyyaml==6.0.1
@@ -18,6 +19,7 @@ torchaudio==2.2.1+cu121
 transformers==4.38.2
 accelerate==0.27.2
 bitsandbytes==0.42.0
+sentence-transformers>=2.2.0
 
 # Speech Processing
 openai-whisper==20231117
@@ -26,16 +28,6 @@ librosa==0.10.1
 vosk==0.3.45
 TTS==0.22.0
 piper-tts==0.1.0
-
-# Web Framework
-flask-cors==4.0.0
-
-# Development
-black==24.2.0
-flake8==7.0.0
-pytest==8.0.2
-pytest-cov==4.1.0
-pytest-asyncio==0.23.5
 
 # Web scraping
 playwright==1.41.0
@@ -50,18 +42,16 @@ anthropic==0.42.0
 google-generativeai==0.3.2
 grpcio==1.54.0
 
+# Development
+black==24.2.0
+flake8==7.0.0
+pytest==8.0.2
+pytest-cov==4.1.0
+pytest-asyncio==0.23.5
+
 # Common dependencies
 setuptools==65.5.1
 wheel==0.38.0
-
-# AI Avatar dependencies
-flask>=3.0.0  # Web server
-sentence-transformers>=2.2.0  # For text embeddings
-faiss-cpu>=1.7.4  # For vector search
-numpy>=1.24.0  # Required for FAISS
-markdown>=3.5.0  # For markdown rendering
-transformers>=4.37.0  # For QA model
-torch>=2.0.0  # Required for transformers
-loguru>=0.7.2  # For logging
+packaging==24.0
 
 # Note: For video processor dependencies, see video_processor/requirements.txt

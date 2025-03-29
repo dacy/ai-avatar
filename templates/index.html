@@ -19,14 +19,14 @@
                 </header>
 
                 <main>
-                    <section class="confluence-input">
+                    <section class="web-input">
                         <div class="section-header">
                             <span class="material-icons">add_circle</span>
                             <h2>Add Knowledge</h2>
                         </div>
                         <div class="input-group">
-                            <input type="text" id="confluence-input" placeholder="Enter URL to knowledge base articles...">
-                            <button id="process-confluence-button" class="primary-button">
+                            <input type="text" id="web-input" placeholder="Enter URL to process">
+                            <button id="add-knowledge-btn" class="primary-button">
                                 <span class="material-icons">add</span>
                                 Add Knowledge
                             </button>
@@ -94,7 +94,12 @@
                     <div class="system-status">
                         <div class="status-header">
                             <h3>System Status</h3>
-                            <span class="status-indicator {{ system_status.status }}">{{ system_status.status }}</span>
+                            <span class="status-indicator {{ system_status.status }}" 
+                                  {% if system_status.error_details %}
+                                  title="{{ system_status.error_details }}"
+                                  {% endif %}>
+                                {{ system_status.status }}
+                            </span>
                         </div>
                         <div class="status-grid">
                             <div class="status-item">
@@ -115,12 +120,20 @@
                                 <span class="status-value">{{ system_status.gpu_name }}</span>
                             </div>
                             {% endif %}
+                            <div class="status-item">
+                                <span class="status-label">Embedding Model:</span>
+                                <span class="status-value">{{ system_status.embedding_model }}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">QA Model:</span>
+                                <span class="status-value">{{ system_status.qa_model }}</span>
+                            </div>
                         </div>
                     </div>
                 </main>
 
                 <footer>
-                    <div id="status-message" class="status-message">Checking system status...</div>
+                    <p>&copy; 2024 AI Avatar. All rights reserved.</p>
                 </footer>
             </div>
         </div>

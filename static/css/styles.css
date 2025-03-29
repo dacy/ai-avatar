@@ -484,29 +484,38 @@ input[type="text"]:focus {
 
 /* Status Messages */
 .status-message {
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius);
-    background: var(--bg-secondary);
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    text-align: center;
-    margin-top: var(--spacing-xl);
-    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    background-color: var(--surface-color);
+    box-shadow: var(--shadow-sm);
 }
 
-.status-message.ready {
-    background: var(--success-color);
+.status-message.success {
+    background-color: var(--success-color);
     color: white;
 }
 
 .status-message.error {
-    background: var(--error-color);
+    background-color: var(--error-color);
     color: white;
 }
 
 .status-message.warning {
     background: var(--warning-color);
     color: white;
+}
+
+.status-message .material-icons {
+    font-size: 24px;
+}
+
+.status-message p {
+    margin: 0;
+    font-size: 16px;
 }
 
 /* Loading Indicator */
@@ -764,11 +773,17 @@ footer {
 }
 
 .status-indicator {
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
     font-size: 0.9rem;
     font-weight: 500;
     text-transform: capitalize;
+    position: relative;
+    cursor: help;  /* Show help cursor on hover */
+}
+
+.status-indicator[title] {
+    border-bottom: 1px dotted var(--text-muted);
 }
 
 .status-indicator.operational {
@@ -776,7 +791,7 @@ footer {
     color: white;
 }
 
-.status-indicator.warning {
+.status-indicator.degraded {
     background-color: var(--warning-color);
     color: white;
 }

@@ -31,22 +31,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 
-# Import from src.confluence since we're now inside the ai_avatar directory
+# Import from src.embedding since we're now inside the ai_avatar directory
+from src.embedding.crawler import WebCrawler
+from src.embedding.embedder import TextEmbedder
+
 try:
-    from src.embedding.crawler import ConfluenceCrawler
-    from src.embedding.embedder import TextEmbedder
-    logger.info("Successfully imported ConfluenceCrawler and TextEmbedder from src.embedding")
-except ImportError as e:
-    logger.error(f"Failed to import ConfluenceCrawler or TextEmbedder: {e}")
+    logger.info("Successfully imported WebCrawler and TextEmbedder from src.embedding")
+except Exception as e:
+    logger.error(f"Failed to import WebCrawler or TextEmbedder: {e}")
     raise
 
 # Import embedding and index modules
 try:
-    from src.embedding.model import EmbeddingModel
     from src.search.faiss_index import FAISSIndex
-    logger.info("Successfully imported embedding and index modules")
+    logger.info("Successfully imported FAISSIndex")
 except ImportError as e:
-    logger.error(f"Failed to import embedding or index modules: {e}")
+    logger.error(f"Failed to import FAISSIndex: {e}")
     raise
 
 # Import QA extractors
@@ -109,6 +109,10 @@ logger.info(f"Index path: {config['search']['index_path']}")
 logger.info(f"Metadata path: {config['search']['metadata_path']}")
 logger.info(f"Vector directory: {config['storage']['vector_dir']}")
 
+# Initialize crawler and embedder
+crawler = WebCrawler()
+text_embedder = TextEmbedder()
+
 # Initialize QA extractor based on config
 logger.info("Step 3: Initializing QA extractor...")
 qa_extractor = create_qa(config)  # Use the factory function
@@ -117,9 +121,11 @@ logger.info("QA extractor initialized successfully")
 # Initialize embedding model and FAISS index
 try:
     logger.info("Starting server initialization...")
-    logger.info("Step 1: Initializing embedding model...")
-    embedding_model = EmbeddingModel(config["embedding"]["model_name"])
-    logger.info("Embedding model initialized successfully")
+    logger.info("Step 1: Initializing text embedder...")
+    text_embedder = TextEmbedder(
+        model_name=config["embedding"]["model_name"]
+    )
+    logger.info("Text embedder initialized successfully")
     
     # Load FAISS index if it exists
     logger.info("Step 2: Loading FAISS index...")
@@ -132,13 +138,6 @@ try:
         logger.warning("No FAISS index found. Please add some Confluence pages first.")
         faiss_index = None
         logger.info("FAISS index set to None")
-    
-    # Initialize Confluence embedder
-    logger.info("Step 3: Initializing text embedder...")
-    text_embedder = TextEmbedder(
-        model_name=config["embedding"]["model_name"]
-    )
-    logger.info("Text embedder initialized successfully")
     
     logger.info("Server initialization completed successfully")
 except Exception as e:
@@ -155,54 +154,13 @@ except Exception as e:
 def status():
     """Check system status"""
     try:
-        # Check if Ollama is available
-        ollama_available = check_ollama_availability()
-        
-        # Check if index exists and is valid
-        index_exists = os.path.exists(config["search"]["index_path"])
-        index_working = True
-        
-        if index_exists:
-            try:
-                # Try to load the index to verify it's not corrupted
-                faiss_index = FAISSIndex.load(config["search"]["index_path"], config["search"]["metadata_path"])
-                index_working = True
-            except Exception as e:
-                logger.error(f"Error loading index: {e}")
-                index_working = False
-                # Delete corrupted files
-                for file_path in [config["search"]["index_path"], config["search"]["metadata_path"]]:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-        
-        # System is operational if Ollama is available and either:
-        # 1. Index doesn't exist yet (normal for first-time setup)
-        # 2. Index exists and is working
-        status = "operational" if ollama_available and (not index_exists or index_working) else "degraded"
-        
-        return jsonify({
-            'status': status,
-            'ollama_available': ollama_available,
-            'index_exists': index_exists,
-            'index_working': index_working
-        })
-        
+        return jsonify(get_system_status())
     except Exception as e:
         logger.error(f"Error checking system status: {e}")
         return jsonify({
             'status': 'error',
             'error': str(e)
         }), 500
-
-def check_ollama_availability() -> bool:
-    """Check if Ollama is running and accessible"""
-    try:
-        response = requests.get("http://localhost:11434/api/version")
-        response.raise_for_status()
-        return True
-    except Exception as e:
-        logger.error(f"Ollama not available: {str(e)}")
-        return False
 
 @app.route('/')
 def index():
@@ -245,7 +203,7 @@ def search():
             
             # Generate query embedding
             logger.info("Generating query embedding")
-            query_embedding = embedding_model.encode_texts([query_text])[0]
+            query_embedding = text_embedder.encode_texts([query_text])[0]
             logger.info(f"Generated query embedding with shape {query_embedding.shape}")
             
             # Search the index
@@ -467,21 +425,16 @@ def transcribe_audio(audio_path):
         logger.error(f"Error transcribing audio: {e}")
         raise
 
-def extract_confluence_text(url: str) -> tuple[str, str]:
-    """Extract text content and title from a Confluence page"""
+def extract_web_text(url):
+    """Extract text content from a web page"""
     try:
-        # Use the Confluence crawler
-        crawler = ConfluenceCrawler()
+        crawler = WebCrawler()
         result = asyncio.run(crawler.crawl_page(url))
-        
-        logger.info(f"Successfully extracted content from {url}")
-        logger.info(f"Title: {result['title']}")
-        logger.info(f"Content length: {len(result['content'])} characters")
-        
+        if not result:
+            raise Exception(f"Failed to fetch content from {url}")
         return result['title'], result['content']
-        
     except Exception as e:
-        logger.error(f"Error extracting text from Confluence page: {e}")
+        logger.error(f"Error extracting text from web page: {e}")
         raise
 
 def split_text(text: str, chunk_size: int) -> List[str]:
@@ -517,26 +470,41 @@ def split_text(text: str, chunk_size: int) -> List[str]:
         logger.error(f"Error splitting text into chunks: {e}")
         raise
 
-@app.route('/process_confluence', methods=['POST'])
-def process_confluence():
-    """Process a Confluence page and add it to the search index"""
-    logger.info("Received request to /process_confluence")
+@app.route('/process_web', methods=['POST'])
+def process_web():
+    """Process a web page and add it to the knowledge base"""
+    global faiss_index  # Move global declaration to the top
+    
     try:
         data = request.get_json()
-        logger.info(f"Request data: {data}")
-        url = data.get('url')
+        if not data or 'url' not in data:
+            return jsonify({'error': 'No URL provided'})
         
-        if not url:
-            logger.error("No URL provided in request")
-            return jsonify({'error': 'No URL provided'}), 400
+        url = data['url']
+        logger.info(f"Processing web page: {url}")
+        
+        # Crawl the page
+        crawler = WebCrawler()
+        page_data = asyncio.run(crawler.crawl_page(url))
+        
+        if not page_data:
+            error_msg = "Failed to extract content"
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
             
-        # Extract text content from the URL
-        logger.info(f"Extracting content from URL: {url}")
-        title, content = extract_confluence_text(url)
-        
+        if not page_data.get('content'):
+            error_msg = "No content found in page data"
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
+            
+        if page_data.get('title') == 'Error':
+            error_msg = page_data.get('content', 'Unknown error occurred while extracting content')
+            logger.error(f"Error from crawler: {error_msg}")
+            return jsonify({'error': error_msg}), 400
+            
         # Process the content
         logger.info(f"Processing content from URL: {url}")
-        result = text_embedder.process_text(content, config["storage"]["raw_dir"])
+        result = text_embedder.process_text(page_data['content'], config["storage"]["raw_dir"])
         
         # Generate embeddings for the content
         logger.info("Generating embeddings for content")
@@ -546,10 +514,11 @@ def process_confluence():
             logger.info(f"First chunk length: {len(chunks[0])}")
             logger.info(f"First chunk content: {chunks[0][:200]}")
         else:
-            logger.error("No chunks were generated!")
-            return jsonify({'error': 'No content chunks were generated'}), 400
+            error_msg = "No content chunks were generated"
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
             
-        embeddings = embedding_model.encode_texts(chunks)
+        embeddings = text_embedder.encode_texts(chunks)
         logger.info(f"Generated embeddings with shape {embeddings.shape}")
         
         # Prepare metadata for each chunk
@@ -557,29 +526,83 @@ def process_confluence():
         for i, chunk in enumerate(chunks):
             metadata = {
                 'page_id': result['metadata']['content_id'],
-                'title': title,
+                'title': page_data['title'],
                 'url': url,
                 'chunk_index': i,
                 'text': chunk
             }
             metadata_list.append(metadata)
         
-        # Add embeddings to FAISS index
-        logger.info("Adding embeddings to FAISS index")
-        
-        global faiss_index
-        # Create new index if it doesn't exist
-        if faiss_index is None:
-            logger.info("Creating new FAISS index")
+        # Check if index exists
+        if not os.path.exists(config["search"]["index_path"]):
+            logger.info("Index not found, rebuilding from processed files")
+            # Create new index
             faiss_index = FAISSIndex(dimension=config["embedding"]["dimension"])
+            
+            # Get all processed files
+            processed_dir = os.path.join('data', 'processed')
+            if not os.path.exists(processed_dir):
+                os.makedirs(processed_dir)
+            
+            processed_files = [f for f in os.listdir(processed_dir) if f.endswith('.json')]
+            
+            if not processed_files:
+                logger.warning("No processed files found to rebuild index")
+                return jsonify({'error': 'No processed files found to rebuild index'})
+            
+            # Process each file
+            all_embeddings = []
+            all_metadata = []
+            
+            for filename in processed_files:
+                file_path = os.path.join(processed_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    
+                    # Generate embeddings for the content
+                    file_chunks = text_embedder.split_text(data['content'])
+                    file_embeddings = text_embedder.encode_texts(file_chunks)
+                    
+                    # Prepare metadata for each chunk
+                    for i, chunk in enumerate(file_chunks):
+                        metadata = {
+                            'page_id': data.get('metadata', {}).get('content_id', ''),
+                            'title': data.get('title', ''),
+                            'url': data.get('url', ''),
+                            'chunk_index': i,
+                            'text': chunk
+                        }
+                        all_metadata.append(metadata)
+                    
+                    all_embeddings.append(file_embeddings)
+                    logger.info(f"Processed {filename}")
+                except Exception as e:
+                    logger.error(f"Error processing {filename}: {str(e)}")
+                    continue
+            
+            # Combine all embeddings
+            if all_embeddings:
+                combined_embeddings = np.vstack(all_embeddings)
+                logger.info(f"Combined embeddings shape: {combined_embeddings.shape}")
+                logger.info(f"Total metadata items: {len(all_metadata)}")
+                
+                # Add to index
+                faiss_index.add_embeddings(combined_embeddings, all_metadata)
+                
+                # Save the index
+                faiss_index.save(config["search"]["index_path"], config["search"]["metadata_path"])
+                logger.info(f"Index rebuilt and saved to {config['search']['index_path']}")
+            else:
+                logger.warning("No embeddings generated from processed files")
+                return jsonify({'error': 'Failed to generate embeddings from processed files'})
+        else:
+            # Load existing index and add new content
+            faiss_index = FAISSIndex.load(config["search"]["index_path"], config["search"]["metadata_path"])
+            faiss_index.add_embeddings(embeddings, metadata_list)
+            faiss_index.save(config["search"]["index_path"], config["search"]["metadata_path"])
         
-        faiss_index.add_embeddings(embeddings, metadata_list)
-        
-        # Save the index
-        logger.info("Saving FAISS index")
-        faiss_index.save(config["search"]["index_path"], config["search"]["metadata_path"])
-        
-        return jsonify({'message': 'Confluence page processed successfully'})
+        return jsonify({'message': 'Web page processed successfully'})
     except Exception as e:
         error_msg = str(e).lower()
         if "corrupted" in error_msg or "invalid" in error_msg or "pickle" in error_msg:
@@ -587,32 +610,10 @@ def process_confluence():
             for file_path in [config["search"]["index_path"], config["search"]["metadata_path"]]:
                 if os.path.exists(file_path):
                     os.remove(file_path)
-            return jsonify({'error': 'Search index was corrupted. Please add your Confluence pages again to rebuild the index.'}), 500
-        logger.error(f"Error processing Confluence page: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/fetch_content', methods=['POST'])
-def fetch_content():
-    """Fetch content from a URL"""
-    logger.info("Received request to /fetch_content")
-    try:
-        data = request.get_json()
-        logger.info(f"Request data: {data}")
-        url = data.get('url')
-        
-        if not url:
-            logger.error("No URL provided in request")
-            return jsonify({'error': 'No URL provided'}), 400
-            
-        # Extract text content from the URL
-        logger.info(f"Extracting content from URL: {url}")
-        title, content = extract_confluence_text(url)
-        logger.info(f"Successfully extracted content with length: {len(content)}")
-        
-        return jsonify({'title': title, 'content': content})
-        
-    except Exception as e:
-        logger.error(f"Error fetching content: {e}", exc_info=True)
+            error_msg = 'Search index was corrupted. Please add your web pages again to rebuild the index.'
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 500
+        logger.error(f"Error processing web page: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 def rebuild_metadata():
@@ -674,12 +675,12 @@ def get_indexed_documents():
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
                         logger.info(f"File content for {filename}:")
-                        logger.info(f"First 200 chars: {content[:200]}")
+                        logger.info(f"First 100 chars: {content[:100]}")
                         
                         # Try to parse as JSON to get the title
                         try:
                             data = json.loads(content)
-                            logger.info(f"Parsed JSON data: {data}")
+                            # logger.info(f"Parsed JSON data: {data}")
                             if isinstance(data, dict) and 'title' in data:
                                 title = data['title']
                                 logger.info(f"Found title in JSON: {title}")

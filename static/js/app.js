@@ -16,8 +16,8 @@ const resultsContainer = document.getElementById('results');
 const loadingIndicator = document.getElementById('loading-indicator');
 const errorMessage = document.getElementById('error-message');
 const statusMessage = document.getElementById('status-message');
-const confluenceInput = document.getElementById('confluence-input');
-const processConfluenceButton = document.getElementById('process-confluence-button');
+const webInput = document.getElementById('web-input');
+const addKnowledgeBtn = document.getElementById('add-knowledge-btn');
 const documentsList = document.getElementById('documents-list');
 
 // Event listeners
@@ -25,7 +25,12 @@ submitTextBtn.addEventListener('click', () => submitTextQuery(questionInput.valu
 recordButton.addEventListener('mousedown', startRecording);
 recordButton.addEventListener('mouseup', stopRecording);
 recordButton.addEventListener('mouseleave', stopRecording);
-processConfluenceButton.addEventListener('click', () => processConfluencePage(confluenceInput.value));
+
+// Add Knowledge button click handler
+addKnowledgeBtn.addEventListener('click', async () => {
+    await processWebPage(webInput.value);
+    await loadIndexedDocuments(); // Reload the documents list
+});
 
 // Load indexed documents on page load
 document.addEventListener('DOMContentLoaded', loadIndexedDocuments);
@@ -252,10 +257,17 @@ async function submitTextQuery(query) {
 // Function to load indexed documents
 async function loadIndexedDocuments() {
     try {
-        const response = await fetch('/indexed_documents');
-        const data = await response.json();
+        documentsList.innerHTML = '<div class="loading">Loading documents...</div>';
         
-        const documentsList = document.getElementById('documents-list');
+        const response = await fetch('/indexed_documents');
+        if (!response.ok) {
+            throw new Error('Failed to fetch documents');
+        }
+        
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
         
         if (!data.documents || data.documents.length === 0) {
             documentsList.innerHTML = '<div class="no-documents">No documents indexed yet</div>';
@@ -276,21 +288,20 @@ async function loadIndexedDocuments() {
         documentsList.innerHTML = html;
     } catch (error) {
         console.error('Error loading indexed documents:', error);
-        const documentsList = document.getElementById('documents-list');
-        documentsList.innerHTML = '<div class="error-message">Error loading documents</div>';
+        documentsList.innerHTML = `<div class="error-message">Error loading documents: ${error.message}</div>`;
     }
 }
 
-async function processConfluencePage(url) {
+async function processWebPage(url) {
     if (!url.trim()) {
-        showError('Please enter a Confluence page URL');
+        showError('Please enter a URL');
         return;
     }
     
     showLoading();
     
     try {
-        const response = await fetch('/process_confluence', {
+        const response = await fetch('/process_web', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -299,7 +310,7 @@ async function processConfluencePage(url) {
         });
         
         if (!response.ok) {
-            throw new Error('Failed to process Confluence page');
+            throw new Error('Failed to process web page');
         }
         
         const data = await response.json();
@@ -310,10 +321,27 @@ async function processConfluencePage(url) {
         // Reload the indexed documents list
         await loadIndexedDocuments();
         
-        showResults('Confluence page processed successfully', []);
-        confluenceInput.value = '';
+        // Show success message
+        const resultsContainer = document.getElementById('results');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMessage = document.getElementById('error-message');
+        
+        // Hide loading indicator and error message
+        loadingIndicator.style.display = 'none';
+        errorMessage.style.display = 'none';
+        
+        // Show success message
+        resultsContainer.innerHTML = `
+            <div class="status-message success">
+                <span class="material-icons">check_circle</span>
+                <p>Web page processed successfully</p>
+            </div>
+        `;
+        resultsContainer.style.display = 'block';
+        
+        webInput.value = '';
     } catch (error) {
-        showError('Error processing Confluence page: ' + error.message);
+        showError('Error processing web page: ' + error.message);
     } finally {
         hideLoading();
     }
@@ -337,7 +365,7 @@ async function checkSystemStatus() {
         // Update UI based on status
         recordButton.disabled = !data.ollama_available;
         submitTextBtn.disabled = !data.index_working;
-        processConfluenceButton.disabled = !data.ollama_available;
+        addKnowledgeBtn.disabled = !data.ollama_available;
         
         if (!data.ollama_available) {
             statusMessage.textContent += ' (Voice input disabled)';
@@ -349,10 +377,4 @@ async function checkSystemStatus() {
         statusMessage.textContent = 'System Status: Error';
         statusMessage.className = 'status-message error';
     }
-}
-
-// Also reload documents after processing a new page
-processConfluenceButton.addEventListener('click', async () => {
-    await processConfluencePage(confluenceInput.value);
-    loadIndexedDocuments(); // Reload the documents list
-}); 
+} 

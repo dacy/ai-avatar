@@ -25,6 +25,44 @@ class TextEmbedder:
         self.dimension = self.model.get_sentence_embedding_dimension()
         logger.info(f"Initialized TextEmbedder with model {model_name} and dimension {self.dimension}")
         
+    def encode_texts(self, texts: List[str]) -> np.ndarray:
+        """
+        Create embeddings for a list of texts.
+        
+        Args:
+            texts: List of text strings to embed
+            
+        Returns:
+            numpy.ndarray: Array of embeddings
+        """
+        try:
+            logger.info(f"Encoding {len(texts)} texts")
+            embeddings = self.model.encode(texts)
+            logger.info(f"Created embeddings with shape: {embeddings.shape}")
+            return embeddings
+        except Exception as e:
+            logger.error(f"Error encoding texts: {str(e)}")
+            raise
+            
+    def get_embedding(self, text: str) -> np.ndarray:
+        """
+        Create embedding for a single text.
+        
+        Args:
+            text: Text string to embed
+            
+        Returns:
+            numpy.ndarray: The embedding vector
+        """
+        try:
+            logger.info(f"Creating embedding for text of length: {len(text)}")
+            embedding = self.model.encode(text)
+            logger.info(f"Created embedding with shape: {embedding.shape}")
+            return embedding
+        except Exception as e:
+            logger.error(f"Error creating embedding: {str(e)}")
+            raise
+        
     def process_text(self, text: str, output_dir: str, title: str = None) -> Dict[str, Any]:
         """
         Process text content and create embeddings.
@@ -42,7 +80,7 @@ class TextEmbedder:
         """
         try:
             logger.info(f"Processing text of length: {len(text)}")
-            logger.info(f"First 200 chars of input: {text[:200]}")
+            logger.info(f"First 100 chars of input: {text[:100]}")
             
             # Clean up whitespace
             lines = (line.strip() for line in text.splitlines())
@@ -50,7 +88,7 @@ class TextEmbedder:
             content = ' '.join(chunk for chunk in chunks if chunk)
             
             logger.info(f"Processed text length: {len(content)}")
-            logger.info(f"First 200 chars of processed text: {content[:200]}")
+            logger.info(f"First 100 chars of processed text: {content[:100]}")
             
             # Save content to file
             os.makedirs(output_dir, exist_ok=True)
@@ -75,8 +113,7 @@ class TextEmbedder:
             raise
             
     def split_text(self, text: str, chunk_size: int = 512, overlap: int = 128) -> List[str]:
-        """
-        Split text into chunks for embedding.
+        """Split text into chunks of specified size with overlap.
         
         Args:
             text: Text to split
@@ -88,10 +125,19 @@ class TextEmbedder:
         """
         try:
             logger.info(f"Splitting text of length: {len(text)}")
-            logger.info(f"First 200 chars of input: {text[:200]}")
+            logger.info(f"First 100 chars of input: {text[:100]}")
             
-            # Split text into sentences
-            sentences = [s.strip() for s in text.split('.') if s.strip()]
+            # Clean up the text first
+            text = text.replace('\n', ' ').replace('\r', ' ')
+            text = ' '.join(text.split())  # Normalize whitespace
+            
+            # Split text into sentences using more robust sentence splitting
+            sentences = []
+            for sentence in text.split('.'):
+                sentence = sentence.strip()
+                if sentence and len(sentence) > 10:  # Only keep meaningful sentences
+                    sentences.append(sentence)
+            
             logger.info(f"Number of sentences: {len(sentences)}")
             if sentences:
                 logger.info(f"First sentence: {sentences[0]}")
@@ -143,5 +189,5 @@ class TextEmbedder:
             return chunks
             
         except Exception as e:
-            logger.error(f"Failed to split text: {e}")
-            raise 
+            logger.error(f"Error splitting text: {e}")
+            return [] 
